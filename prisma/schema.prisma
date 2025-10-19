@@ -1,0 +1,100 @@
+// Prisma schema for SDL (Syndic du Lac)
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // Use a direct connection for migrations.  The DATABASE_URL should point to the pooled connection,
+  // while DIRECT_DATABASE_URL connects directly to the compute node.  See Neon docs for details.
+  directUrl = env("DIRECT_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id            String   @id @default(uuid())
+  name          String?
+  email         String?  @unique
+  emailVerified DateTime?
+  password      String?
+  image         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  // A user may own multiple lots.  The relation LotOwners defines the many-to-many join table between
+  // users and lots.  Properties have been removed in favour of Copropriétés and Lots.
+  lots         Lot[]        @relation("LotOwners")
+  accounts     Account[]
+  sessions     Session[]
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String?
+  access_token       String?
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String?
+  session_state      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+
+
+model Copropriete {
+  id        String   @id @default(uuid())
+  name      String
+  address   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lots      Lot[]
+}
+
+model Lot {
+  id            String   @id @default(uuid())
+  name          String
+  description   String?
+  // Lot belongs to a copropriété (required).  The field coproprieteId references the parent Copropriete.
+  coproprieteId String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  copropriete  Copropriete @relation(fields: [coproprieteId], references: [id])
+
+  // Many-to-many relation with User. For implicit m-n relations, do not specify `references`.
+  proprietaires User[]      @relation("LotOwners")
+  locataires    Locataire[]
+}
+
+model Locataire {
+  id        String   @id @default(uuid())
+  name      String
+  email     String?
+  phone     String?
+  lotId     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lot Lot @relation(fields: [lotId], references: [id])
+}
